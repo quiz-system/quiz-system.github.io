@@ -1,3 +1,5 @@
+#To use the app open this link: https://quiz-system.github.io/index.html
+
 # Quiz Fever
 Система за създадване, управление, и попълване на тестове със свободен достъп.
 
