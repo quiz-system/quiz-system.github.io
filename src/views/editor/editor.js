@@ -7,12 +7,12 @@ const template = (quiz, quizEditor, updateCount) => html`
 <section id="editor">
 
     <header class="pad-large">
-        <h1>${quiz !== null ? 'Edit Quiz' : 'New Quiz'}</h1>
+        <h1>${quiz ? 'Edit Quiz' : 'New Quiz'}</h1>
     </header>
 
     ${quizEditor}
 
-    ${quiz !== null ? createList(quiz.objectId, quiz.questions, updateCount) : ''}
+    ${quiz ? createList(quiz.objectId, quiz.questions, updateCount) : ''}
 
 </section>`;
 
@@ -21,19 +21,18 @@ const quizEditorTemplate = (quiz, onSave, working) => html`
 <form @submit=${onSave}>
     <label class="editor-label layout">
         <span class="label-col">Title:</span>
-        <input class="input i-med" type="text" name="title" .value=${quiz ? quiz.title : '' } ?disabled=${working}>
+        <input class="input i-med" type="text" name="title" .value=${quiz ? quiz.title : ''} ?disabled=${working}>
     </label>
     <label class="editor-label layout">
         <span class="label-col">Topic:</span>
-        <select class="input i-med" name="topic" .value=${quiz ? quiz.topic : '0' } ?disabled=${working}>
+        <select class="input i-med" name="topic" .value=${quiz ? quiz.topic : '0'} ?disabled=${working}>
             <option value="0">-- Select category</option>
-            ${Object.entries(topics).map(([k, v]) => html`<option value=${k} ?selected=${quiz !== null && quiz.topic==k}>
-                ${v}</option>`)}
+            ${Object.entries(topics).map(([k, v]) => html`<option value=${k} ?selected=${quiz.topic == k} >${v}</option>`)}
         </select>
     </label>
     <label class="editor-label layout">
         <span class="label-col">Description:</span>
-        <textarea class="input" name="description" .value=${quiz ? quiz.description : '' }
+        <textarea class="input" name="description" .value=${quiz ? quiz.description : ''}
             ?disabled=${working}></textarea>
     </label>
     <input class="input submit action" type="submit" value="Save">
