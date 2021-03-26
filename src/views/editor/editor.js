@@ -7,12 +7,12 @@ const template = (quiz, quizEditor, updateCount) => html`
 <section id="editor">
 
     <header class="pad-large">
-        <h1>${quiz ? 'Edit Quiz' : 'New Quiz'}</h1>
+        <h1>${quiz!==null&&quiz ? 'Edit Quiz' : 'New Quiz'}</h1>
     </header>
 
     ${quizEditor}
 
-    ${quiz ? createList(quiz.objectId, quiz.questions, updateCount) : ''}
+    ${quiz&&quiz!==null ? createList(quiz.objectId, quiz.questions, updateCount) : ''}
 
 </section>`;
 
