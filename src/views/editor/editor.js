@@ -1,75 +1,70 @@
-import { topics, html, render } from '../../lib.js';
-import { createList } from './list.js';
-import { createQuiz, updateQuiz, getQuizById, getQuestionsByQuizId } from '../../api/data.js';
-
+import createList from './list.js';
+import { categories } from '../../util.js';
+import { html, render } from '../../lib.js';
+import { overlayLoader } from '../common/loader.js';
+import { createQuiz, updateQuiz, getQuizByQuizId, getQuestionsByQuizId } from '../../api/data.js';
 
 const template = (quiz, quizEditor, updateCount) => html`
-<section id="editor">
+    <section id="editor">
+        <header class="pad-large">
+            <h1>${quiz ? 'Edit Quiz' : 'New Quiz'}</h1>
+        </header>
 
-    <header class="pad-large">
-        <h1>${quiz ? 'Edit Quiz' : 'New Quiz'}</h1>
-    </header>
+        ${quizEditor} ${quiz ? createList(quiz.objectId, quiz.questions, updateCount) : null}
+    </section>
+`;
 
-    ${quizEditor}
+const quizEditorTemplate = (onSave, quiz, loading) => html`
+    <form @submit=${onSave}>
+        <label class="editor-label layout">
+            <span class="label-col">Quiz Title:</span>
+            <input class="input i-med" type="text" name="title" .value=${quiz ? quiz.title : null} ?disabled=${loading} />
+        </label>
 
-    ${quiz ? createList(quiz.objectId, quiz.questions, updateCount) : ''}
+        <label class="editor-label layout">
+            <span class="label-col">Category:</span>
+            <select class="input i-med" name="category" .value=${quiz ? quiz.category : '0'} ?disabled=${loading}>
+                <option value="0"><span class="quiz-meta">-- Select Category</span></option>
+                ${Object.entries(categories).map(([k, v]) => html`<option value=${k} ?selected=${quiz && quiz.category === v}>${v}</option>`)}
+            </select>
+        </label>
 
-</section>`;
+        <label class="editor-label layout">
+            <span class="label-col">Description</span>
+            <textarea class="input i-med" name="description" .value=${quiz ? quiz.description : null} ?disabled=${loading}></textarea>
+        </label>
 
+        <input class="input submit action" type="submit" value="Save" />
+    </form>
 
-const quizEditorTemplate = (quiz, onSave, working) => html`
-<form @submit=${onSave}>
-    <label class="editor-label layout">
-        <span class="label-col">Title:</span>
-        <input class="input i-med" type="text" name="title" .value=${quiz ? quiz.title : ''} ?disabled=${working}>
-    </label>
-    <label class="editor-label layout">
-        <span class="label-col">Topic:</span>
-        <select class="input i-med" name="topic" .value=${quiz ? quiz.topic : '0'} ?disabled=${working}>
-            <option value="0">-- Select category</option>
-            ${Object.entries(topics).map(([k, v]) => html`<option value=${k} ?selected=${quiz.topic == k} >${v}</option>`)}
-        </select>
-    </label>
-    <label class="editor-label layout">
-        <span class="label-col">Description:</span>
-        <textarea class="input" name="description" .value=${quiz ? quiz.description : ''}
-            ?disabled=${working}></textarea>
-    </label>
-    <input class="input submit action" type="submit" value="Save">
-</form>
+    ${loading ? overlayLoader : null}
+`;
 
-${working ? html`<div class="loading-overlay working"></div>` : ''}`;
-
-
-function createQuizEditor(quiz, onSave) {
+function createQuizEditor(onSave, quiz) {
     const editor = document.createElement('div');
-    editor.className = 'pad-large alt-page';
+    editor.classList.add('pad-large', 'alt-page');
     update();
 
     return {
         editor,
-        updateEditor: update
+        updateEditor: update,
     };
 
-    function update(working) {
-        render(quizEditorTemplate(quiz, onSave, working), editor);
+    function update(loading) {
+        render(quizEditorTemplate(onSave, quiz, loading), editor);
     }
 }
 
-export async function editorPage(ctx) {
+export default async function editorPage(ctx) {
     const quizId = ctx.params.id;
-    let quiz = null;
-    let questions = [];
+    const ownerId = JSON.parse(sessionStorage.getItem('auth')).userId || undefined;
+    const [quiz, questions] = quizId ? await Promise.all([getQuizByQuizId(quizId), getQuestionsByQuizId(quizId, ownerId)]) : [null, []];
+
     if (quizId) {
-        [quiz, questions] = await Promise.all([
-            getQuizById(quizId),
-            getQuestionsByQuizId(quizId, sessionStorage.getItem('userId'))
-        ]);
         quiz.questions = questions;
     }
 
-    const { editor, updateEditor } = createQuizEditor(quiz, onSave);
-
+    const { editor, updateEditor } = createQuizEditor(onSave, quiz);
     ctx.render(template(quiz, editor, updateCount));
 
     async function updateCount(change = 0) {
@@ -77,20 +72,21 @@ export async function editorPage(ctx) {
         await updateQuiz(quizId, { questionCount: count });
     }
 
-    async function onSave(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
+    async function onSave(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
 
-        const title = formData.get('title');
-        const topic = formData.get('topic');
-        const description = formData.get('description');
+        const [title, description, category] = [
+            formData.get('title').trim(),
+            formData.get('description').trim(),
+            categories[formData.get('category').trim()],
+        ];
 
-        const data = {
-            title,
-            topic,
-            description,
-            questionCount: questions.length
-        };
+        if ([title, description, category].map(Boolean).includes(false)) {
+            return alert('All fields are required!');
+        }
+
+        const data = { title, category, description, questionCount: questions.length };
 
         try {
             updateEditor(true);
@@ -98,11 +94,11 @@ export async function editorPage(ctx) {
             if (quizId) {
                 await updateQuiz(quizId, data);
             } else {
-                const result = await createQuiz(data);
-                ctx.page.redirect('/edit/' + result.objectId);
+                const response = await createQuiz(data);
+                ctx.page.redirect('/edit/' + response.objectId);
             }
         } catch (err) {
-            console.error(err);
+            alert(err);
         } finally {
             updateEditor(false);
         }

@@ -1,52 +1,65 @@
+import createQuestion from './question.js';
 import { html, render } from '../../lib.js';
-import { createQuestion } from './question.js';
 import { deleteQuestion } from '../../api/data.js';
 
-
+// If not owner - don't show 'add question' button
 const questionList = (questions, addQuestion) => html`
-<header class="pad-large">
-    <h2>Questions</h2>
-</header>
+    <header class="pad-large">
+        <h2>Questions</h2>
+    </header>
 
-${questions}
+    ${questions}
 
-<article class="editor-question">
-    <div class="editor-input">
-        <button @click=${addQuestion} class="input submit action">
-            <i class="fas fa-plus-circle"></i>
-            Add question
-        </button>
-    </div>
-</article>`;
+    <article class="editor-question">
+        <div class="editor-input">
+            <button @click=${addQuestion} class="input submit action">
+                <i class="fas fa-plus-circle"></i>
+                Add question
+            </button>
+        </div>
+    </article>
+`;
 
-
-export function createList(quizId, questions, updateCount) {
-    const currentQuestions = questions.map(q => createQuestion(quizId, q, removeQuestion, updateCount));
-
+export default function createList(quizId, questions, updateCount) {
+    const currentQuestions = questions.map((q) => createQuestion(quizId, q, removeQuestion));
     const element = document.createElement('div');
-    element.className = 'pad-large alt-page';
+    element.classList.add('pad-large', 'alt-page');
 
     update();
-
     return element;
 
     function addQuestion() {
         questions.push({
             text: '',
             answers: [],
-            correctIndex: 0
+            correctIndex: 0,
         });
 
-        currentQuestions.push(createQuestion(quizId, {
-            text: '',
-            answers: [],
-            correctIndex: 0
-        }, removeQuestion, updateCount, true));
+        currentQuestions.push(
+            createQuestion(
+                quizId,
+                {
+                    text: '',
+                    answers: [],
+                    correctIndex: 0,
+                },
+                removeQuestion,
+                updateCount,
+                true
+            )
+        );
+
         update();
     }
 
     function update() {
-        render(questionList(currentQuestions.map((c, i) => c(i)), addQuestion), element);
+        render(
+            questionList(
+                currentQuestions.map((c, i) => c(i)),
+                addQuestion
+            ),
+            element
+        );
     }
 
     async function removeQuestion(index, id) {
@@ -56,9 +69,9 @@ export function createList(quizId, questions, updateCount) {
                 await deleteQuestion(id);
                 updateCount(-1);
             }
-            
-            questions.splice(index, 1);
+
             currentQuestions.splice(index, 1);
+            questions.splice(index, 1);
             update();
         }
     }

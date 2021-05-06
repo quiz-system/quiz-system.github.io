@@ -1,46 +1,39 @@
 import { html, render } from '../../lib.js';
 
+const radioEdit = (questionIndex, answerIndex, value, checked) => html`
+    <div class="editor-input">
+        <label class="radio">
+            <input class="input" type="radio" name=${`question- ${questionIndex}`} value=${answerIndex} ?checked=${checked} />
+            <i class="fas fa-check-circle"></i>
+        </label>
 
-const radioEdit = (questionIndex, index, value, checked) => html`
-<div class="editor-input">
-    <label class="radio">
-        <input class="input" type="radio" name=${`question-${questionIndex}`} value=${index} ?checked=${checked} />
-        <i class="fas fa-check-circle"></i>
-    </label>
+        <input class="input" type="text" name=${`answer- ${answerIndex}`} .value=${value} />
+        <button data-index=${answerIndex} class="input submit action"><i class="fas fa-trash-alt"></i></button>
+    </div>
+`;
 
-    <input class="input" type="text" name=${`answer-${index}`} .value=${value} />
-    <button data-index=${index} class="input submit action"><i class="fas fa-trash-alt"></i></button>
-</div>`;
-
-export function createAnswerList(data, questionIndex) {
-    const answers = data.answers;
+export default function createAnswerList(question, questionIndex) {
+    const answers = question.answers;
     const element = document.createElement('div');
     element.addEventListener('click', onDelete);
     element.addEventListener('change', onChange);
-    update();
 
+    update();
     return element;
 
     function update() {
-        render(html`
-            ${answers.map((a, i) => radioEdit(questionIndex, i, a, data.correctIndex == i))}
-            <div class="editor-input">
-                <button @click=${addAnswer} class="input submit action">
-                    <i class="fas fa-plus-circle"></i>
-                    Add answer
-                </button>
-            </div>`,
+        render(
+            html`
+                ${answers.map((a, i) => radioEdit(questionIndex, i, a, question.correctIndex === i))}
+                <div class="editor-input">
+                    <button @click=${addAnswer} class="input submit action">
+                        <i class="fas fa-plus-circle"></i>
+                        Add answer
+                    </button>
+                </div>
+            `,
             element
         );
-    }
-
-    function onChange(e) {
-        if (e.target.getAttribute('type') == 'text') {
-            const index = Number(e.target.name.split('-')[1]);
-            answers[index] = e.target.value || '';
-        } else {
-            data.correctIndex = Number(e.target.value);
-        }
     }
 
     function addAnswer(e) {
@@ -49,12 +42,18 @@ export function createAnswerList(data, questionIndex) {
         update();
     }
 
-    function onDelete(e) {
-        let target = e.target;
-        while (target && target != element && target.tagName != 'BUTTON') {
-            target = target.parentNode;
+    function onChange(e) {
+        if (e.target.getAttribute('type') === 'text') {
+            const index = Number(e.target.name.split('-').pop());
+            answers[index] = e.target.value || '';
+        } else {
+            question.correctIndex = Number(e.target.value);
         }
-        const index = target.dataset.index;
+    }
+
+    function onDelete(e) {
+        const index = e.target.dataset.index || e.target.parentNode.dataset.index;
+
         if (index != undefined) {
             e.preventDefault();
             answers.splice(index, 1);

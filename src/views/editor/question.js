@@ -1,87 +1,81 @@
+import createAnswerList from './answer.js';
 import { html, render } from '../../lib.js';
-import { createAnswerList } from './answer.js';
+import { createOverlayLoader } from '../common/loader.js';
+import { createQuestion as apiCreateQuestion, updateQuestion } from '../../api/data.js';
 
-import { createOverlay } from '../common/loader.js';
-import { createQuestion as apiCreate, updateQuestion } from '../../api/data.js';
-
-
-const editorTemplate = (data, index, onSave, onCancel) => html`
-<div class="layout">
-    <div class="question-control">
-        <button @click=${onSave} class="input submit action">
-            <i class="fas fa-check-double"></i>
-            Save
-        </button>
-        <button @click=${onCancel} class="input submit action">
-            <i class="fas fa-times"></i>
-            Cancel
-        </button>
+const viewTemplate = (question, index, onEdit, onDelete) => html`
+    <div class="layout">
+        <div class="question-control">
+            <button @click=${onEdit} class="input submit action"><i class="fas fa-edit"></i> Edit</button>
+            <button @click=${() => onDelete(index)} class="input submit action"><i class="fas fa-trash-alt"></i> Delete</button>
+        </div>
+        <h3>Question ${index + 1}</h3>
     </div>
-    <h3>Question ${index + 1}</h3>
-</div>
-<form>
-    <textarea class="input editor-input editor-text" name="text" placeholder="Enter question"
-        .value=${data.text}></textarea>
+    <div>
+        <p class="editor-input questions-text">${question.text}</p>
 
-    ${createAnswerList(data, index)}
-</form>`;
-
-const viewTemplate = (data, index, onEdit, onDelete) => html`
-<div class="layout">
-    <div class="question-control">
-        <button @click=${onEdit} class="input submit action"><i class="fas fa-edit"></i> Edit</button>
-        <button @click=${() => onDelete(index)} class="input submit action"><i class="fas fa-trash-alt"></i>
-            Delete</button>
+        ${question.answers.map((a, i) => radioView(a, question.correctIndex === i))}
     </div>
-    <h3>Question ${index + 1}</h3>
-</div>
-<div>
-    <p class="editor-input">${data.text}</p>
-
-    ${data.answers.map((a, i) => radioView(a, data.correctIndex == i))}
-
-</div>`;
+`;
 
 const radioView = (value, checked) => html`
-<div class="editor-input">
-    <label class="radio">
-        <input class="input" type="radio" disabled ?checked=${checked} />
-        <i class="fas fa-check-circle"></i>
-    </label>
-    <span>${value}</span>
-</div>`;
+    <div class="editor-input">
+        <label class="radio">
+            <input class="input" type="radio" disabled ?checked=${checked} />
+            <i class="fas fa-check-circle"></i>
+        </label>
+        <span>${value}</span>
+    </div>
+`;
 
+const editorTemplate = (question, index, onSave, onCancel) => html`
+    <div class="layout">
+        <div class="question-control">
+            <button @click=${onSave} class="input submit action"><i class="fas fa-check-double"></i> Save</button>
+            <button @click=${onCancel} class="input submit action"><i class="fas fa-times"></i> Cancel</button>
+        </div>
+        <h3>Question ${index + 1}</h3>
+    </div>
 
-export function createQuestion(quizId, question, removeQuestion, updateCount, edit) {
-    let currentQuestion = copyQuestion(question);
+    <form>
+        <textarea class="input editor-input editor-text" name="text" placeholder="Enter question" .value=${question.text}></textarea>
+
+        ${createAnswerList(question, index)}
+    </form>
+`;
+
+export default function createQuestion(quizId, question, removeQuestion, updateCount, edit) {
     let index = 0;
     let editorActive = edit || false;
+    let currentQuestion = copyQuestion(question);
     const element = document.createElement('article');
-    element.className = 'editor-question';
+    element.classList.add('editor-question');
 
     showView();
-
     return update;
 
-    function update(newIndex) {
-        index = newIndex;
-        if (editorActive) {
-            showEditor();
-        } else {
-            showView();
-        }
-        return element;
-    }
-
-    function onEdit() {
+    async function onEdit() {
         editorActive = true;
         showEditor();
     }
 
+    function onCancel() {
+        showView();
+        element.remove();
+        editorActive = false;
+        // currentQuestion = copyQuestion(question);        
+    }
+
+    function update(newIndex) {
+        index = newIndex;
+        editorActive ? showEditor() : showView();
+        return element;
+    }
+
     async function onSave() {
         const formData = new FormData(element.querySelector('form'));
-
         const data = [...formData.entries()];
+
         const answers = data
             .filter(([k, v]) => k.includes('answer-'))
             .reduce((a, [k, v]) => {
@@ -90,13 +84,22 @@ export function createQuestion(quizId, question, removeQuestion, updateCount, ed
                 return a;
             }, []);
 
+        if (data.some(([k, v]) => v === '')) {
+            return alert("Questions and answers can't be empty!");
+        }
+
+        if (data.find(([k, v]) => k.includes('question-')) === undefined) {
+            return alert('You need to add answers first!');
+        }
+
         const body = {
-            text: formData.get('text'),
             answers,
-            correctIndex: Number(data.find(([k, v]) => k.includes('question-'))[1])
+            text: formData.get('text'),
+            correctIndex: Number(data.find(([k, v]) => k.includes('question-'))[1]),
         };
 
-        const loader = createOverlay();
+        const loader = createOverlayLoader();
+
         try {
             element.appendChild(loader);
 
@@ -105,9 +108,9 @@ export function createQuestion(quizId, question, removeQuestion, updateCount, ed
                 await updateQuestion(question.objectId, body);
             } else {
                 // create
-                const result = await apiCreate(quizId, body);
+                const response = await apiCreateQuestion(quizId, body);
                 updateCount();
-                question.objectId = result.objectId;
+                question.objectId = response.objectId;
             }
 
             Object.assign(question, body);
@@ -115,24 +118,23 @@ export function createQuestion(quizId, question, removeQuestion, updateCount, ed
             editorActive = false;
             update(index);
         } catch (err) {
+            alert(err.message);
             console.error(err);
         } finally {
             loader.remove();
         }
-    }
 
-    function onCancel() {
         editorActive = false;
-        currentQuestion = copyQuestion(question);
-        showView();
     }
 
     function showView() {
         const onDelete = async (index) => {
-            const loader = createOverlay();
+            const loader = createOverlayLoader();
             element.appendChild(loader);
             await removeQuestion(index, question.objectId);
+            loader.remove();
         };
+
         render(viewTemplate(currentQuestion, index, onEdit, onDelete), element);
     }
 

@@ -1,40 +1,55 @@
-export const settings = {
-    host: ''
-};
+import { page } from '../lib.js';
+import setUserNav from '../app.js';
+import { setUserData, clearUserData, getUserData } from '../util.js';
 
-async function request(url, options) {
-    try {
-        const response = await fetch(url, options);
+export const settings = { host: '', appId: '', apiKey: '' };
 
-        if (response.ok == false) {
-            const error = await response.json();
-            throw new Error(error.message);
-        }
+export async function get(url) {
+    return await request(url, getOptions());
+}
 
-        try {
-            const data = await response.json();
-            return data;
-        } catch (err) {
-            return response;
-        }
-    } catch (err) {
-        alert(err.message);
-        throw err;
-    }
+export async function del(url) {
+    return await request(url, getOptions('delete'));
+}
+
+export async function put(url, data) {
+    return await request(url, getOptions('put', data));
+}
+
+export async function post(url, data) {
+    return await request(url, getOptions('post', data));
+}
+
+export async function logout() {
+    const response = post(settings.host + '/logout', {});
+    clearUserData();
+    return response;
+}
+
+export async function login(username, password) {
+    const response = await post(settings.host + '/login', { username, password });
+    setUserData({ username, email: response.email, userId: response.objectId, sessionToken: response.sessionToken });
+    return response;
+}
+
+export async function register(email, username, password) {
+    const response = await post(settings.host + '/users', { email, password, username });
+    setUserData({ username, email, userId: response.objectId, sessionToken: response.sessionToken });
+    return response;
 }
 
 function getOptions(method = 'get', body) {
     const options = {
         method,
         headers: {
-             'X-Parse-Application-Id': 'vEfftZE09rEmQCcu0aqRlQnjmCU5l68m48UEGB1O',
-             'X-Parse-REST-API-Key': '63fBcl2FphOrfKG58Haxc8piu7owwpg4u84ntIx0'
-        }
+            'X-Parse-Application-Id': settings.appId,
+            'X-Parse-REST-API-Key': settings.apiKey,
+        },
     };
 
-    const token = sessionStorage.getItem('authToken');
-    if (token != null) {
-        options.headers['X-Parse-Session-Token'] = token;
+    const auth = getUserData();
+    if (auth) {
+        options.headers['X-Parse-Session-Token'] = auth.sessionToken;
     }
 
     if (body) {
@@ -45,48 +60,26 @@ function getOptions(method = 'get', body) {
     return options;
 }
 
-export async function get(url) {
-    return await request(url, getOptions());
-}
+async function request(url, options) {
+    try {
+        const response = await fetch(url, options);
 
-export async function post(url, data) {
-    return await request(url, getOptions('post', data));
-}
+        if (response.ok === false) {
+            const err = await response.json();
+            throw new Error(err.error);
+        }
 
-export async function put(url, data) {
-    return await request(url, getOptions('put', data));
-}
+        return await response.json();
+    } catch (err) {
+        if (err.message === 'Invalid session token' || err.message === 'Session token is expired.') {
+            alert("Oops something went wrong, we'll fix it now!");
+            page.redirect('/');
+            clearUserData();
+            setUserNav();
+            return;
+        }
 
-export async function del(url) {
-    return await request(url, getOptions('delete'));
-}
-
-export async function login(username, password) {
-    const result = await post(settings.host + '/login', { username, password });
-
-    sessionStorage.setItem('username', username);
-    sessionStorage.setItem('authToken', result.sessionToken);
-    sessionStorage.setItem('userId', result.objectId);
-
-    return result;
-}
-
-export async function register(email, username, password) {
-    const result = await post(settings.host + '/users', { email, username, password });
-
-    sessionStorage.setItem('username', username);
-    sessionStorage.setItem('authToken', result.sessionToken);
-    sessionStorage.setItem('userId', result.objectId);
-
-    return result;
-}
-
-export async function logout() {
-    const result = await post(settings.host + '/logout', {});
-
-    sessionStorage.removeItem('username');
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('userId');
-
-    return result;
+        alert(err.message);
+        throw err;
+    }
 }

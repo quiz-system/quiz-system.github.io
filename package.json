@@ -1,24 +1,29 @@
 {
-  "name": "quiz",
-  "version": "1.0.0",
-  "description": "Система за създадване, управление, и попълване на тестове със свободен достъп.",
-  "main": "index.html",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/quiz-fever/quiz-fever.github.io.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/quiz-fever/quiz-fever.github.io/issues"
-  },
-  "homepage": "https://github.com/quiz-fever/quiz-fever.github.io#readme",
-  "dependencies": {
-    "lit-html": "1.3.0",
-    "page": "1.11.6"
-  }
+    "name": "quiz-time",
+    "version": "1.0.0",
+    "description": "Application for creating, running, and completing tests with free access.",
+    "main": "index.html",
+    "scripts": {
+        "test": "mocha tests",
+        "start": "http-server -a localhost -p 3000 -P http:localhost:3000?"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/quizzestime/quizzestime.github.io"
+    },
+    "author": "InnerPulse",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/quizzestime/quizzestime.github.io/issues"
+    },
+    "homepage": "https://quizzestime.github.io",
+    "dependencies": {
+        "lit-html": "^1.3.0",
+        "page": "^1.11.6"
+    },
+    "prettier": {
+        "tabWidth": 4,
+        "printWidth": 155,
+        "singleQuote": true
+    }
 }
